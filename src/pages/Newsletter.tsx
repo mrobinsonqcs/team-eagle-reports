@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeFunction } from '@/lib/edgeFunctions';
@@ -27,6 +27,7 @@ type NewsletterRow = Database['public']['Tables']['weekly_newsletters']['Row'];
 
 export default function Newsletter() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const currentWeek = mostRecentSunday();
 
   const { data: newsletters, isLoading } = useQuery({
@@ -91,7 +92,11 @@ export default function Newsletter() {
                     {newsletters.map((n) => {
                       const draft = n.draft_data as unknown as NewsletterDraftData | null;
                       return (
-                        <TableRow key={n.id}>
+                        <TableRow
+                          key={n.id}
+                          className="cursor-pointer"
+                          onClick={() => navigate(`/newsletter/${n.week_ending_date}/edit`)}
+                        >
                           <TableCell>{formatDateLong(n.week_ending_date)}</TableCell>
                           <TableCell>
                             <Badge variant={NEWSLETTER_STATUS_BADGE_VARIANT[n.status]}>
@@ -104,7 +109,10 @@ export default function Newsletter() {
                           <TableCell className="text-right">
                             {draft ? `${draft.officesSubmitted} / ${draft.officesTotal}` : '—'}
                           </TableCell>
-                          <TableCell className="space-x-2 whitespace-nowrap text-right">
+                          <TableCell
+                            className="space-x-2 whitespace-nowrap text-right"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <Button
                               render={<Link to={`/newsletter/${n.week_ending_date}/edit`} />}
                               variant="outline"
