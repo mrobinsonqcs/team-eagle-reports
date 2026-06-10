@@ -195,6 +195,9 @@ export default function DirectorDashboard() {
             <Button render={<Link to="/director/dealers" />} variant="outline" size="sm">
               Manage Offices
             </Button>
+            <Button render={<Link to="/newsletter" />} variant="outline" size="sm">
+              Newsletter
+            </Button>
           </CardContent>
         </Card>
 

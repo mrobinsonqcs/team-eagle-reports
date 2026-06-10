@@ -2,6 +2,8 @@ export type AppRole = 'division' | 'admin' | 'dealer';
 
 export type NewsletterStatus = 'draft' | 'ready' | 'sent' | 'skipped';
 
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
 export interface Database {
   public: {
     Tables: {
@@ -188,6 +190,84 @@ export interface Database {
           demos_ran?: number;
           total_units?: number;
           net_installed_protections?: number;
+        };
+        Relationships: [];
+      };
+      weekly_newsletters: {
+        Row: {
+          id: string;
+          week_ending_date: string;
+          status: NewsletterStatus;
+          email_body: string | null;
+          person_of_the_week_name: string | null;
+          person_of_the_week_blurb: string | null;
+          rookie_of_the_week_name: string | null;
+          rookie_of_the_week_blurb: string | null;
+          business_builder_name: string | null;
+          business_builder_blurb: string | null;
+          draft_data: Json | null;
+          completed_at: string | null;
+          sent_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          week_ending_date: string;
+          status?: NewsletterStatus;
+          email_body?: string | null;
+          person_of_the_week_name?: string | null;
+          person_of_the_week_blurb?: string | null;
+          rookie_of_the_week_name?: string | null;
+          rookie_of_the_week_blurb?: string | null;
+          business_builder_name?: string | null;
+          business_builder_blurb?: string | null;
+          draft_data?: Json | null;
+          completed_at?: string | null;
+          sent_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          week_ending_date?: string;
+          status?: NewsletterStatus;
+          email_body?: string | null;
+          person_of_the_week_name?: string | null;
+          person_of_the_week_blurb?: string | null;
+          rookie_of_the_week_name?: string | null;
+          rookie_of_the_week_blurb?: string | null;
+          business_builder_name?: string | null;
+          business_builder_blurb?: string | null;
+          draft_data?: Json | null;
+          completed_at?: string | null;
+          sent_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      newsletter_subscribers: {
+        Row: {
+          id: string;
+          email: string;
+          name: string | null;
+          notes: string | null;
+          active: boolean;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          name?: string | null;
+          notes?: string | null;
+          active?: boolean;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          name?: string | null;
+          notes?: string | null;
+          active?: boolean;
         };
         Relationships: [];
       };

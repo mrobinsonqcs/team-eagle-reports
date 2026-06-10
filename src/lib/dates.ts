@@ -7,6 +7,13 @@ export function getWeekEndingDate(date: Date = new Date()): string {
   return toDateString(d);
 }
 
+/** Returns the date (YYYY-MM-DD) of the most recent Sunday on/before `date`. */
+export function mostRecentSunday(date: Date = new Date()): string {
+  const d = new Date(date);
+  d.setDate(d.getDate() - d.getDay());
+  return toDateString(d);
+}
+
 export function toDateString(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');

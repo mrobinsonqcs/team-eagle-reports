@@ -8,3 +8,24 @@ verify_jwt = true
 
 [functions.manage-dealer]
 verify_jwt = true
+
+[functions.generate-newsletter-draft]
+verify_jwt = false
+
+[functions.preview-newsletter]
+verify_jwt = true
+
+[functions.send-newsletter-test]
+verify_jwt = true
+
+[functions.complete-newsletter]
+verify_jwt = true
+
+[functions.send-newsletter-now]
+verify_jwt = true
+
+[functions.distribute-newsletter]
+verify_jwt = false
+
+[functions.public-newsletter-html]
+verify_jwt = false

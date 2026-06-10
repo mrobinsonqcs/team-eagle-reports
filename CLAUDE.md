@@ -2,7 +2,7 @@
 
 Weekly reporting + Monday newsletter app for the Team Eagle sales division.
 Full spec: `Team_Eagle_Reporting_Blueprint.md`. Build proceeds in 5 phases — see
-section 12. **Phases 1 and 2 are complete.** Do not start later phases
+section 12. **Phases 1, 2, and 3 are complete.** Do not start later phases
 unless asked.
 
 ## Org structure (flat)
@@ -73,6 +73,62 @@ Supabase (Postgres + Auth + Edge Functions). Path alias `@/*` -> `src/*`.
 - All three require `RESEND_API_KEY` (and optionally `RESEND_FROM_EMAIL`) set
   as Supabase function secrets, and `verify_jwt = true` (see
   `supabase/config.toml`).
+- `_shared/errors.ts` exports `errorMessage(error)` — use this in every
+  catch block that might see a Resend SDK error. The Resend SDK rejects with
+  plain `{statusCode, name, message}` objects that are **not**
+  `instanceof Error`, so `error instanceof Error ? error.message : 'Unknown
+  error'` silently swallows the real reason (e.g. "domain not verified").
+
+## Newsletter system (Phase 3)
+
+- Tables: `weekly_newsletters` (one row per `week_ending_date`, `status` enum
+  `draft|ready|sent|skipped`, `draft_data` jsonb computed by
+  `generate-newsletter-draft`, plus editable narrative fields — `email_body`
+  and Person/Rookie/Business-Builder-of-the-Week name+blurb pairs) and
+  `newsletter_subscribers` (extra recipients beyond `profiles`). Both
+  full-access-only RLS (`20260610000003/4_newsletter_*.sql`).
+- Shared template: `_shared/newsletter-html.ts`'s `renderNewsletterFromRow()`
+  builds the full inline-styled HTML email from a `weekly_newsletters` row
+  (table-based, `color-scheme: light only`, explicit `bgcolor`, per critical
+  lesson #6). `_shared/newsletter-recipients.ts` resolves recipient lists
+  (`getFullAccessEmails` for the archive copy, `getAllRecipientEmails` for
+  full distribution — active `profiles` + active `newsletter_subscribers`,
+  deduped). `_shared/newsletter-send.ts`'s `sendNewsletterNow()` is shared by
+  `send-newsletter-now` and `distribute-newsletter`; it's idempotent — a
+  no-op if `status` is already `sent`.
+- Seven edge functions: `generate-newsletter-draft` (cron-secret OR
+  full-access, idempotent unless `force: true`, `verify_jwt = false`),
+  `preview-newsletter`, `send-newsletter-test`, `complete-newsletter` (saves
+  edits, sets `status = ready`, sends a non-fatal "fire-and-forget" archive
+  copy to division/admin — a Resend failure here is logged but does not fail
+  the request, matching `notify-director`'s pattern), `send-newsletter-now`,
+  `distribute-newsletter` (cron-secret OR full-access, `verify_jwt = false`),
+  `public-newsletter-html` (fully public, `verify_jwt = false`, only ever
+  serves `status = sent`, 404 otherwise).
+- Frontend: `/newsletter` (index, full-access only), `/newsletter/:date/edit`
+  (editor, full-access only), `/newsletter/:date/view` (public — tries
+  `public-newsletter-html` first, falls back to `preview-newsletter` for
+  full-access users viewing a draft).
+- Cron jobs (`20260610000006_newsletter_crons.sql`, pg_cron + pg_net):
+  `generate-newsletter-draft-weekly` (Mon 04:00 UTC),
+  `refresh-newsletter-data-weekly` (Mon 14:30 UTC, `force: true`),
+  `distribute-newsletter-weekly` (Mon 15:00 UTC). All three pass
+  `x-cron-secret: public.get_cron_invoke_secret()`. `weekly-office-reminders`
+  and `process-email-queue` (blueprint section 9) are deferred to Phase 4.
+- **Deployment prerequisites not yet satisfied** (pre-existing, not
+  Phase-3-specific code bugs):
+  - The Resend sender domain `lonestarhomesafety.com` (hardcoded fallback for
+    `RESEND_FROM_EMAIL` across `notify-director`, `manage-dealer`, and all
+    newsletter-sending functions) is **not verified in Resend** — all
+    newsletter sends (and `manage-dealer`'s `send_reset_link`) currently fail
+    with a `validation_error` until the domain is verified or
+    `RESEND_FROM_EMAIL` is set to a verified sender.
+  - `public/email-logo.png`, referenced by `_shared/newsletter-html.ts`'s
+    `LOGO_URL`, does not exist — newsletter emails will show a broken image
+    where the logo should be until this asset is added.
+  - `PUBLIC_APP_URL` secret is not set, so `_shared/newsletter-html.ts` falls
+    back to `https://app.lonestarhomesafety.com` for the "View in browser"
+    link — set this once the app's real production domain is known.
 
 ## Draft persistence (ReportForm)
 
@@ -105,6 +161,9 @@ SQL migrations live in `supabase/migrations/`, applied in filename order via
 the Supabase SQL editor or `supabase db push`. The project is linked to the
 remote Supabase project (`qllmzkhryjsyvcuhltty`, see `supabase/config.toml`
 and `.env.local`) via `supabase link`; all migrations through
-`20260609000010` are applied to that remote database. Edge functions
-(`notify-director`, `invite-dealer`, `manage-dealer`) must be deployed
-separately via `supabase functions deploy`.
+`20260610000006` are applied to that remote database. Edge functions
+(`notify-director`, `invite-dealer`, `manage-dealer`, and the seven
+newsletter functions) must be deployed separately via
+`supabase functions deploy` (requires `SUPABASE_ACCESS_TOKEN` set in the
+environment for `npx supabase functions deploy ...` to work without an
+interactive login).

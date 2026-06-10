@@ -11,6 +11,9 @@ import DirectorDashboard from '@/pages/DirectorDashboard';
 import ManageOffices from '@/pages/ManageOffices';
 import ReportForm from '@/pages/ReportForm';
 import SafetyAdvisors from '@/pages/SafetyAdvisors';
+import Newsletter from '@/pages/Newsletter';
+import NewsletterEditor from '@/pages/NewsletterEditor';
+import NewsletterView from '@/pages/NewsletterView';
 import NotFound from '@/pages/NotFound';
 
 const queryClient = new QueryClient();
@@ -64,6 +67,23 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/newsletter"
+              element={
+                <ProtectedRoute requireFullAccess>
+                  <Newsletter />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/newsletter/:weekEndingDate/edit"
+              element={
+                <ProtectedRoute requireFullAccess>
+                  <NewsletterEditor />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/newsletter/:weekEndingDate/view" element={<NewsletterView />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Toaster />

@@ -24,3 +24,19 @@ export async function requireFullAccess(userClient: SupabaseClient) {
 
   return { authorized: true as const, user };
 }
+
+/**
+ * Checks the `x-cron-secret` header against the shared secret stored in
+ * vault (via the service-role-only get_cron_invoke_secret RPC). Used by
+ * cron-invoked edge functions instead of service-role JWT validation (see
+ * CLAUDE.md critical lesson #3).
+ */
+export async function requireCronSecret(req: Request, adminClient: SupabaseClient) {
+  const provided = req.headers.get('x-cron-secret');
+  if (!provided) return false;
+
+  const { data: expected, error } = await adminClient.rpc('get_cron_invoke_secret');
+  if (error || !expected) return false;
+
+  return provided === expected;
+}

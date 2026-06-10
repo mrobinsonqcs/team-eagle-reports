@@ -9,3 +9,10 @@ export function jsonResponse(body: unknown, status = 200): Response {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
+
+export function htmlResponse(html: string, status = 200): Response {
+  return new Response(html, {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8' },
+  });
+}
