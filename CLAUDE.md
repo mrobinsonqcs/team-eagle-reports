@@ -42,14 +42,17 @@ Supabase (Postgres + Auth + Edge Functions). Path alias `@/*` -> `src/*`.
   service-role requests (`auth.uid() is null`) — required for the
   `manage-dealer` edge function to edit/deactivate profiles.
 - Every table needs an explicit `grant select, insert, update, delete on
-  public.<table> to authenticated;` (RLS policies alone aren't enough — the
-  role also needs the table-level privilege, or PostgREST returns
-  "permission denied for table ..."). `20260610000001_table_grants.sql`
-  grants this for all Phase 1/2 tables and adds `alter default privileges in
-  schema public grant select, insert, update, delete on tables to
-  authenticated;` so new tables inherit it automatically — but add the
-  explicit grant for any new table in its own migration too, for
-  self-documentation and in case default privileges ever get reset.
+  public.<table> to authenticated;` **and** `... to service_role;` (RLS
+  policies alone aren't enough — the role also needs the table-level
+  privilege, or PostgREST/edge functions return "permission denied for table
+  ..."; `service_role`'s RLS bypass does not imply table grants).
+  `20260610000001_table_grants.sql` (authenticated) and
+  `20260610000002_service_role_table_grants.sql` (service_role) grant this
+  for all Phase 1/2 tables and add `alter default privileges in schema public
+  grant select, insert, update, delete on tables to <role>;` so new tables
+  inherit it automatically — but add the explicit grants for any new table in
+  its own migration too, for self-documentation and in case default
+  privileges ever get reset.
 
 ## Edge Functions (`supabase/functions/`)
 
