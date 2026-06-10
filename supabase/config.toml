@@ -1,0 +1,10 @@
+project_id = "qllmzkhryjsyvcuhltty"
+
+[functions.notify-director]
+verify_jwt = true
+
+[functions.invite-dealer]
+verify_jwt = true
+
+[functions.manage-dealer]
+verify_jwt = true

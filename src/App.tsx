@@ -8,6 +8,9 @@ import SetPassword from '@/pages/SetPassword';
 import Index from '@/pages/Index';
 import DealerDashboard from '@/pages/DealerDashboard';
 import DirectorDashboard from '@/pages/DirectorDashboard';
+import ManageOffices from '@/pages/ManageOffices';
+import ReportForm from '@/pages/ReportForm';
+import SafetyAdvisors from '@/pages/SafetyAdvisors';
 import NotFound from '@/pages/NotFound';
 
 const queryClient = new QueryClient();
@@ -30,10 +33,34 @@ export default function App() {
               }
             />
             <Route
+              path="/dealer/report"
+              element={
+                <ProtectedRoute>
+                  <ReportForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/safety-advisors"
+              element={
+                <ProtectedRoute>
+                  <SafetyAdvisors />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/director"
               element={
                 <ProtectedRoute requireFullAccess>
                   <DirectorDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/director/dealers"
+              element={
+                <ProtectedRoute requireFullAccess>
+                  <ManageOffices />
                 </ProtectedRoute>
               }
             />

@@ -2,7 +2,7 @@
 
 Weekly reporting + Monday newsletter app for the Team Eagle sales division.
 Full spec: `Team_Eagle_Reporting_Blueprint.md`. Build proceeds in 5 phases — see
-section 12. **Phase 1 (Foundation) is complete.** Do not start later phases
+section 12. **Phases 1 and 2 are complete.** Do not start later phases
 unless asked.
 
 ## Org structure (flat)
@@ -19,7 +19,7 @@ Navy `#1E2850` (primary), Red `#D81F26` (accent/destructive), White
 
 ## Stack
 
-Vite + React 18 + TS + Tailwind v4 + shadcn/ui (Base UI primitives) +
+Vite + React 19 + TS + Tailwind v4 + shadcn/ui (Base UI primitives) +
 react-router + react-hook-form + zod + @tanstack/react-query. Backend:
 Supabase (Postgres + Auth + Edge Functions). Path alias `@/*` -> `src/*`.
 
@@ -38,7 +38,38 @@ Supabase (Postgres + Auth + Edge Functions). Path alias `@/*` -> `src/*`.
   guard).
 - `guard_profile_self_update` trigger blocks self-updates to
   `office_id`/`email`/`active` and blocks flipping `must_change_password`
-  from false to true. division/admin bypass this guard.
+  from false to true. division/admin bypass this guard, and so do
+  service-role requests (`auth.uid() is null`) — required for the
+  `manage-dealer` edge function to edit/deactivate profiles.
+
+## Edge Functions (`supabase/functions/`)
+
+- `notify-director`: emails division/admin when an office submits its first
+  weekly report for a week (fire-and-forget from `ReportForm`). Uses Resend.
+- `invite-dealer`: full-access only. Invites a new dealer user, finds/creates
+  their office by name, and auto-creates a matching `safety_advisors` row.
+- `manage-dealer`: full-access only. Actions: `set_password` (generates a
+  phone-friendly password, sets `must_change_password`), `send_reset_link`
+  (Resend, not the auth email hook), `deactivate`/`reactivate` (sets
+  `profiles.active` + 100-year auth ban as a "permanent" ban), `edit`
+  (full_name/marketing_director_name/office_id).
+- Shared helpers in `supabase/functions/_shared/`: `cors.ts`, `clients.ts`
+  (service-role vs. user-JWT clients), `auth.ts` (`requireFullAccess`),
+  `password-generator.ts`, `notify-director-email.ts`.
+- Frontend calls go through `src/lib/edgeFunctions.ts`'s `invokeFunction()`,
+  which surfaces the function's `{ error: "..." }` body as a thrown `Error`.
+- All three require `RESEND_API_KEY` (and optionally `RESEND_FROM_EMAIL`) set
+  as Supabase function secrets, and `verify_jwt = true` (see
+  `supabase/config.toml`).
+
+## Draft persistence (ReportForm)
+
+`src/pages/ReportForm.tsx` persists in-progress reports to `localStorage`
+(key `report-draft-${officeId}-${weekEndingDate}` or
+`report-draft-edit-${reportId}` when editing) on every form change and on
+`visibilitychange`, restores on mount, and clears on successful submit. This
+is a load-bearing UX requirement — sales reps fill these out on phones with
+flaky connections.
 
 ## Critical lessons (see blueprint section 13 for full list)
 
@@ -51,7 +82,7 @@ Supabase (Postgres + Auth + Edge Functions). Path alias `@/*` -> `src/*`.
    unchanged (`src/hooks/useAuth.tsx`) — prevents re-render cascades that
    wipe form state.
 5. Phone-friendly temp passwords (`fire-eagle-47` style) for admin-issued
-   credentials — added in a later phase.
+   credentials — implemented in `manage-dealer`'s `set_password` action.
 6. Newsletter HTML (later phase) must be table-based, inline-styled,
    `color-scheme: light only`, explicit `bgcolor` everywhere (Gmail dark
    mode).
@@ -59,5 +90,9 @@ Supabase (Postgres + Auth + Edge Functions). Path alias `@/*` -> `src/*`.
 ## Migrations
 
 SQL migrations live in `supabase/migrations/`, applied in filename order via
-the Supabase SQL editor or `supabase db push`. No Supabase project is linked
-yet — see the Phase 1 verification checklist for setup steps.
+the Supabase SQL editor or `supabase db push`. The project is linked to the
+remote Supabase project (`qllmzkhryjsyvcuhltty`, see `supabase/config.toml`
+and `.env.local`) via `supabase link`; all migrations through
+`20260609000010` are applied to that remote database. Edge functions
+(`notify-director`, `invite-dealer`, `manage-dealer`) must be deployed
+separately via `supabase functions deploy`.
