@@ -38,6 +38,16 @@ interface WeeklyReport {
   last_edited_at: string | null;
 }
 
+interface SaBreakdown {
+  id: string;
+  weekly_report_id: string;
+  safety_advisor_id: string;
+  appointments_set: number;
+  demos_ran: number;
+  total_units: number;
+  net_installed_protections: number;
+}
+
 export default function DealerDashboard() {
   const { profile } = useAuth();
   const officeId = profile?.office_id ?? null;
@@ -79,6 +89,35 @@ export default function DealerDashboard() {
 
   const thisWeeksReport = history?.find((r) => r.week_ending_date === currentWeek) ?? null;
   const pastReports = history?.filter((r) => r.week_ending_date !== currentWeek) ?? [];
+
+  const { data: advisors } = useQuery({
+    queryKey: ['office-safety-advisors', officeId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('safety_advisors')
+        .select('id, full_name')
+        .eq('office_id', officeId!);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!officeId,
+  });
+
+  const { data: breakdown } = useQuery({
+    queryKey: ['report-breakdown', thisWeeksReport?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('weekly_report_sa_breakdown')
+        .select('*')
+        .eq('weekly_report_id', thisWeeksReport!.id);
+      if (error) throw error;
+      return data as SaBreakdown[];
+    },
+    enabled: !!thisWeeksReport,
+  });
+
+  const advisorName = (advisorId: string) =>
+    advisors?.find((a) => a.id === advisorId)?.full_name ?? advisorId;
 
   if (!officeId) {
     return (
@@ -140,6 +179,43 @@ export default function DealerDashboard() {
                     value={thisWeeksReport.recruits_in_training}
                   />
                   <Stat label="Qualified Recruits" value={thisWeeksReport.qualified_recruits} />
+                </div>
+                <div>
+                  <p className="mb-1 text-xs font-medium uppercase text-muted-foreground">
+                    Safety Advisor Breakdown
+                  </p>
+                  {!breakdown && <p className="text-sm">Loading...</p>}
+                  {breakdown && breakdown.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      No per-advisor numbers reported.
+                    </p>
+                  )}
+                  {breakdown && breakdown.length > 0 && (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Safety Advisor</TableHead>
+                          <TableHead className="text-right">Appts Set</TableHead>
+                          <TableHead className="text-right">Demos</TableHead>
+                          <TableHead className="text-right">Total Units</TableHead>
+                          <TableHead className="text-right">Net Protections</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {breakdown.map((b) => (
+                          <TableRow key={b.id}>
+                            <TableCell>{advisorName(b.safety_advisor_id)}</TableCell>
+                            <TableCell className="text-right">{b.appointments_set}</TableCell>
+                            <TableCell className="text-right">{b.demos_ran}</TableCell>
+                            <TableCell className="text-right">{b.total_units}</TableCell>
+                            <TableCell className="text-right">
+                              {b.net_installed_protections}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
                 </div>
                 {thisWeeksReport.notes && (
                   <div>
