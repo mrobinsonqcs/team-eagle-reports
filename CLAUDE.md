@@ -2,8 +2,8 @@
 
 Weekly reporting + Monday newsletter app for the Team Eagle sales division.
 Full spec: `Team_Eagle_Reporting_Blueprint.md`. Build proceeds in 5 phases — see
-section 12. **Phases 1, 2, and 3 are complete.** Do not start later phases
-unless asked.
+section 12. **Phases 1-4 are complete.** Do not start later phases unless
+asked.
 
 ## Org structure (flat)
 
@@ -123,14 +123,12 @@ Supabase (Postgres + Auth + Edge Functions). Path alias `@/*` -> `src/*`.
     newsletter sends (and `manage-dealer`'s `send_reset_link`) currently fail
     with a `validation_error` until the domain is verified or
     `RESEND_FROM_EMAIL` is set to a verified sender.
-  - `public/email-logo.png`, referenced by `_shared/newsletter-html.ts`'s
-    `LOGO_URL`, does not exist — newsletter emails will show a broken image
-    where the logo should be until this asset is added.
   - `PUBLIC_APP_URL` secret is not set, so `_shared/newsletter-html.ts` falls
     back to `https://app.lonestarhomesafety.com` for the "View in browser"
     link — set this once the app's real production domain is known.
+  - (`public/email-logo.png` has been added — no longer an open item.)
 
-## Draft persistence (ReportForm)
+## Draft persistence (ReportForm, NewsletterEditor)
 
 `src/pages/ReportForm.tsx` persists in-progress reports to `localStorage`
 (key `report-draft-${officeId}-${weekEndingDate}` or
@@ -138,6 +136,45 @@ Supabase (Postgres + Auth + Edge Functions). Path alias `@/*` -> `src/*`.
 `visibilitychange`, restores on mount, and clears on successful submit. This
 is a load-bearing UX requirement — sales reps fill these out on phones with
 flaky connections.
+
+`src/pages/NewsletterEditor.tsx` mirrors this for the seven editable
+narrative fields (email body, Person/Rookie/Business-Builder-of-the-Week
+name+blurb pairs) under key `newsletter-draft-${weekEndingDate}`. Restored on
+load (with a toast) when the loaded newsletter changes, persisted on every
+field change, and cleared when "Save and mark ready" succeeds.
+
+## Phase 4 notes
+
+- **Cron secret rotation**: `public.rotate_cron_invoke_secret()`
+  (`20260610000007_rotate_cron_invoke_secret.sql`) generates a fresh random
+  hex secret and updates the existing `cron_invoke_secret` vault entry (or
+  creates it if missing). `security definer`, gated by
+  `is_full_access(auth.uid())` (raises `Forbidden` otherwise), `EXECUTE`
+  granted to `authenticated`. Callable as
+  `supabase.rpc('rotate_cron_invoke_secret')` from a full-access session, or
+  via `select rotate_cron_invoke_secret();` in the SQL editor (run as a
+  service-role/superuser session there, so the `is_full_access` check needs
+  `auth.uid()` to resolve to a division/admin user — easiest via the RPC from
+  a logged-in admin). Cron jobs read the secret fresh via
+  `get_cron_invoke_secret()` at execution time, so rotation needs no
+  re-scheduling. There is no frontend UI for this (admin/SQL-level
+  capability only).
+- The following Phase 4 blueprint items were already satisfied by earlier
+  phases (verified, no new code needed):
+  - **Force password change flow**: `ProtectedRoute.tsx`/`Index.tsx` redirect
+    to `/set-password` when `profile.must_change_password` is true;
+    `SetPassword.tsx` calls `supabase.auth.updateUser({password})` then
+    flips `must_change_password` to `false` via a self-update permitted by
+    `guard_profile_self_update`. Functionally equivalent to the blueprint's
+    `complete_password_change()` RPC — no separate RPC was added.
+  - **Newsletter dark-mode protection**: `_shared/newsletter-html.ts` already
+    has `color-scheme`/`supported-color-schemes: light only` meta tags and
+    explicit `bgcolor` attributes throughout (Phase 3, critical lesson #6).
+  - **Skip `applySession` on `TOKEN_REFRESHED`**: already implemented in
+    `useAuth.tsx` via the `appliedUserId` ref guard (critical lesson #4).
+  - **Manage Offices "Last Login" column**: `get_user_last_sign_ins(uuid[])`
+    (`20260609000008_rookie_and_last_signin_functions.sql`) already exists
+    and `ManageOffices.tsx` already renders a "Last Login" column from it.
 
 ## Critical lessons (see blueprint section 13 for full list)
 
@@ -161,7 +198,7 @@ SQL migrations live in `supabase/migrations/`, applied in filename order via
 the Supabase SQL editor or `supabase db push`. The project is linked to the
 remote Supabase project (`qllmzkhryjsyvcuhltty`, see `supabase/config.toml`
 and `.env.local`) via `supabase link`; all migrations through
-`20260610000006` are applied to that remote database. Edge functions
+`20260610000007` are applied to that remote database. Edge functions
 (`notify-director`, `invite-dealer`, `manage-dealer`, and the seven
 newsletter functions) must be deployed separately via
 `supabase functions deploy` (requires `SUPABASE_ACCESS_TOKEN` set in the

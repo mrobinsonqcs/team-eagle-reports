@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -31,6 +31,16 @@ import type { Database } from '@/integrations/supabase/types';
 
 type NewsletterRow = Database['public']['Tables']['weekly_newsletters']['Row'];
 
+interface NewsletterNarrativeDraft {
+  emailBody: string;
+  personName: string;
+  personBlurb: string;
+  rookieName: string;
+  rookieBlurb: string;
+  bbName: string;
+  bbBlurb: string;
+}
+
 export default function NewsletterEditor() {
   const { weekEndingDate } = useParams<{ weekEndingDate: string }>();
   const queryClient = useQueryClient();
@@ -49,6 +59,8 @@ export default function NewsletterEditor() {
     enabled: !!weekEndingDate,
   });
 
+  const draftKey = `newsletter-draft-${weekEndingDate ?? 'unknown'}`;
+
   const [emailBody, setEmailBody] = useState('');
   const [personName, setPersonName] = useState('');
   const [personBlurb, setPersonBlurb] = useState('');
@@ -57,19 +69,61 @@ export default function NewsletterEditor() {
   const [bbName, setBbName] = useState('');
   const [bbBlurb, setBbBlurb] = useState('');
 
-  // Sync local form state from the loaded newsletter row. Adjusting state
-  // during render (rather than in an effect) avoids an extra render pass.
+  // Sync local form state from the loaded newsletter row, applying any
+  // unsaved localStorage draft on top. Adjusting state during render (rather
+  // than in an effect) avoids an extra render pass.
   const [loadedNewsletterId, setLoadedNewsletterId] = useState<string | null>(null);
   if (newsletter && newsletter.id !== loadedNewsletterId) {
     setLoadedNewsletterId(newsletter.id);
-    setEmailBody(newsletter.email_body ?? '');
-    setPersonName(newsletter.person_of_the_week_name ?? '');
-    setPersonBlurb(newsletter.person_of_the_week_blurb ?? '');
-    setRookieName(newsletter.rookie_of_the_week_name ?? '');
-    setRookieBlurb(newsletter.rookie_of_the_week_blurb ?? '');
-    setBbName(newsletter.business_builder_name ?? '');
-    setBbBlurb(newsletter.business_builder_blurb ?? '');
+
+    let savedDraft: Partial<NewsletterNarrativeDraft> | null = null;
+    const draftRaw = localStorage.getItem(draftKey);
+    if (draftRaw) {
+      try {
+        savedDraft = JSON.parse(draftRaw) as Partial<NewsletterNarrativeDraft>;
+      } catch {
+        savedDraft = null;
+      }
+    }
+
+    setEmailBody(savedDraft?.emailBody ?? newsletter.email_body ?? '');
+    setPersonName(savedDraft?.personName ?? newsletter.person_of_the_week_name ?? '');
+    setPersonBlurb(savedDraft?.personBlurb ?? newsletter.person_of_the_week_blurb ?? '');
+    setRookieName(savedDraft?.rookieName ?? newsletter.rookie_of_the_week_name ?? '');
+    setRookieBlurb(savedDraft?.rookieBlurb ?? newsletter.rookie_of_the_week_blurb ?? '');
+    setBbName(savedDraft?.bbName ?? newsletter.business_builder_name ?? '');
+    setBbBlurb(savedDraft?.bbBlurb ?? newsletter.business_builder_blurb ?? '');
+
+    if (savedDraft) {
+      toast.info('Restored your unsaved draft for this newsletter.');
+    }
   }
+
+  // Persist narrative fields on every change (sales reps/admins may edit on
+  // phones with flaky connections).
+  useEffect(() => {
+    if (!loadedNewsletterId) return;
+    const data: NewsletterNarrativeDraft = {
+      emailBody,
+      personName,
+      personBlurb,
+      rookieName,
+      rookieBlurb,
+      bbName,
+      bbBlurb,
+    };
+    localStorage.setItem(draftKey, JSON.stringify(data));
+  }, [
+    loadedNewsletterId,
+    draftKey,
+    emailBody,
+    personName,
+    personBlurb,
+    rookieName,
+    rookieBlurb,
+    bbName,
+    bbBlurb,
+  ]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['weekly-newsletter', weekEndingDate] });
@@ -102,6 +156,7 @@ export default function NewsletterEditor() {
         business_builder_blurb: bbBlurb || null,
       }),
     onSuccess: () => {
+      localStorage.removeItem(draftKey);
       toast.success('Saved and marked ready');
       invalidate();
     },
