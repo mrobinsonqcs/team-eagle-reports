@@ -2,8 +2,9 @@
 
 Weekly reporting + Monday newsletter app for the Team Eagle sales division.
 Full spec: `Team_Eagle_Reporting_Blueprint.md`. Build proceeds in 5 phases — see
-section 12. **Phases 1-4 are complete.** Do not start later phases unless
-asked.
+section 12. **All 5 phases are complete.** The app is deployed; remaining
+work is operational onboarding (see "Phase 5 / deployment" below), not
+further phases.
 
 ## Org structure (flat)
 
@@ -175,6 +176,45 @@ field change, and cleared when "Save and mark ready" succeeds.
   - **Manage Offices "Last Login" column**: `get_user_last_sign_ins(uuid[])`
     (`20260609000008_rookie_and_last_signin_functions.sql`) already exists
     and `ManageOffices.tsx` already renders a "Last Login" column from it.
+
+## Phase 5 / deployment
+
+- **Frontend**: deployed to Vercel as project `team-eagle-reports` (org
+  `mrobinsonqcs-projects`), linked to this GitHub repo
+  (`mrobinsonqcs/team-eagle-reports`) for auto-deploy on push to `main`.
+  Production URL: `https://team-eagle-reports.vercel.app`. Production env
+  vars `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are set in
+  Vercel (values match `.env.local`).
+- **Edge functions**: all 10 (`notify-director`, `invite-dealer`,
+  `manage-dealer`, and the 7 newsletter functions) are deployed and `ACTIVE`
+  on the linked Supabase project.
+- `PUBLIC_APP_URL` function secret is set to
+  `https://team-eagle-reports.vercel.app` (the live app). The hardcoded
+  fallback in `_shared/newsletter-html.ts` is `https://app.lonestarhomesafety.com`
+  — if/when a custom domain (e.g. `app.lonestarhomesafety.com`) is attached
+  to the Vercel project and DNS is pointed at it, update this secret to
+  match.
+- **Outstanding manual onboarding steps** (require dashboard/registrar access
+  this assistant doesn't have):
+  - **Resend sending domain**: `lonestarhomesafety.com` has no MX or TXT
+    records configured (verified via `dig`), so it has not been added/
+    verified in Resend. Until a domain is added in the Resend dashboard and
+    its SPF/DKIM/DMARC TXT records are added at the DNS registrar, all
+    newsletter sends and `manage-dealer`'s `send_reset_link` will fail with
+    `validation_error`. Either complete that verification or set
+    `RESEND_FROM_EMAIL` to an already-verified sender.
+  - **Custom domain**: attach `app.lonestarhomesafety.com` (or chosen
+    subdomain) to the `team-eagle-reports` Vercel project and point DNS at
+    it, then update `PUBLIC_APP_URL` accordingly.
+  - **Seed offices and users**: per division lead's preference, real offices
+    and Safety Advisor accounts will be added through the live app's
+    "Manage Offices" → invite/add-office UI (`invite-dealer` edge function),
+    not via bulk admin SQL. That UI auto-generates phone-friendly temp
+    passwords with `must_change_password = true`.
+  - **Launch message**: send the team the login URL
+    (`https://team-eagle-reports.vercel.app`), their temp password (from
+    "Manage Offices" → set password), and confirm each user can sign in and
+    is forced through `/set-password` on first login.
 
 ## Critical lessons (see blueprint section 13 for full list)
 
